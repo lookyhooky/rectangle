@@ -1,0 +1,19 @@
+{
+  "name": "rectangle",
+  "license": "MIT",
+  "version": "0.0.1",
+  "description": "A text rectangle constructor",
+  "main": "rectangle.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lookyhooky/rectangle.git"
+  },
+  "author": "John Hooks <john@hookscrane.com>",
+  "bugs": {
+    "url": "https://github.com/lookyhooky/rectangle/issues"
+  },
+  "homepage": "https://github.com/lookyhooky/rectangle#readme"
+}
