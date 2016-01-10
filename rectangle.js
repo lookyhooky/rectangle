@@ -1,5 +1,5 @@
 /**
- * rectangle.js - A rectangle constructor... aka 'Grid'
+ * rectangle.js - A rectangle constructor... aka Two Dimensional Array
  *
  * TODO: decide on a method to index the columns and rows.
  *
@@ -28,19 +28,11 @@ function hasColumn (rect, column) {
 function build2DArray (array, columns, rows, iteratee) {
   var row, column
   array.length = rows // Truncate incase rebuilding the array.
-  if (typeof iteratee === 'function') {
-    for (row = 0; row < rows; row++) {
-      array[row] = []
-      for (column = 0; column < columns; column++) {
-        array[row][column] = iteratee(column, row)
-      }
-    }
-  } else {
-    for (row = 0; row < rows; row++) {
-      array[row] = []
-      for (column = 0; column < columns; column++) {
-        array[row][column] = null
-      }
+  iteratee = iteratee || function (row, column) { return null }
+  for (row = 0; row < rows; row++) {
+    array[row] = []
+    for (column = 0; column < columns; column++) {
+      array[row][column] = iteratee(column, row)
     }
   }
 }
