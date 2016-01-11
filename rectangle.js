@@ -1,10 +1,7 @@
 /**
- * rectangle.js - A rectangle constructor... aka Two Dimensional Array
- *
- * TODO: decide on a method to index the columns and rows.
- *
- * Important notes - Columns and rows are input into the api starting at
- * [1,1] though the data array manages indexes starting at [0][0]
+ * rectangle.js --- A rectangle constructor... aka Two Dimensional Array
+ * Important notes - Columns and rows indexes start at 0,0
+ * TODO: Make a simple base constructor and a complex one
  */
 
 function isArrayLike (obj) {
@@ -26,13 +23,15 @@ function hasColumn (rect, column) {
 }
 
 function build2DArray (array, columns, rows, iteratee) {
-  var row, column
-  array.length = rows // Truncate incase rebuilding the array.
-  iteratee = iteratee || function (row, column) { return null }
-  for (row = 0; row < rows; row++) {
-    array[row] = []
-    for (column = 0; column < columns; column++) {
-      array[row][column] = iteratee(column, row)
+  if (columns > 0 && rows > 0) {
+    var row, column
+    array.length = rows // Truncate incase rebuilding the array.
+    iteratee = iteratee || function (row, column) { return null }
+    for (row = 0; row < rows; row++) {
+      array[row] = []
+      for (column = 0; column < columns; column++) {
+        array[row][column] = iteratee(column, row)
+      }
     }
   }
 }
@@ -43,6 +42,16 @@ var each = function (rect, iteratee, context) {
   for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
     for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
       iteratee.call(context, array[r][q], q, r, array)
+    }
+  }
+}
+
+var mutate = function (rect, iteratee, context) {
+  var q, r, array, qCount, rCount
+  array = rect._array
+  for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
+    for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
+      array[r][q] = iteratee.call(context, array[r][q], q, r, array)
     }
   }
 }
@@ -71,6 +80,11 @@ each.column = function (rect, iteratee, context) {
   }
 }
 
+/*
+ * The current `column or `row is passesd as the last argument to `iteratee.
+ * The intent is for it to use as an index for the current position. This should
+ * allow `iteratee to be dual purposed for either each.of.row or each.of.column
+ */
 each.of = {
   row: function (rect, r, iteratee, context) {
     if (hasRow(rect, r)) {
@@ -92,28 +106,46 @@ each.of = {
   }
 }
 
-function impose (main, rect, q1, r1) {
-  var q2, r2, array
-
-  array = main._array
-
-  q2 = (q1 + rect.dims.columns > main.dims.columns)
-    ? main.dims.columns
-    : q1 + rect.dims.columns
-
-  r2 = (r1 + rect.dims.rows > main.dims.rows)
-    ? main.dims.rows
-    : r1 + rect.dims.rows
-
-  each(rect, function (item, q, r) {
-    if (item) {
-      var currentQ = q + q1
-      var currentR = r + r1
-      if (currentQ < q2 && currentR < r2) {
-        array[currentR][currentQ] = item
-      }
+function prepare (fill) {
+  if (typeof fill === 'function') {
+    return fill
+  } else if (isArrayLike(fill)) {
+    var length = fill.length              // Might want to look into generators.
+    return function (item, q, r, array, index) { // Need the additional index for accessing
+      array[r][q] = (index < length) ? fill[index] : null // the arrayLike seperately.
     }
-  })
+  } else {
+    return function (item, q, r, array) {
+      array[r][q] = null
+    }
+  }
+}
+
+/*
+ * impose --- Replace the values of `main with those of `rect starting at `q1,`r1
+ * and ending at `q2,`r2.
+ */
+function impose (main, rect, q1, r1) {
+  if (q1 < main.dims.columns && r1 < main.dims.rows) {
+    var q2, r2, array
+    array = main._array
+    q2 = (q1 + rect.dims.columns > main.dims.columns)
+      ? main.dims.columns
+      : q1 + rect.dims.columns
+    r2 = (r1 + rect.dims.rows > main.dims.rows)
+      ? main.dims.rows
+      : r1 + rect.dims.rows
+
+    each(rect, function (item, q, r) {
+      if (item) {
+        var currentQ = q + q1
+        var currentR = r + r1
+        if (currentQ < q2 && currentR < r2) {
+          array[currentR][currentQ] = item
+        }
+      }
+    })
+  }
 }
 
 var Rectangle = function (columns, rows, items) {
@@ -128,7 +160,7 @@ var Rectangle = function (columns, rows, items) {
 
   if (isArrayLike(items)) {
     build2DArray(this._array, columns, rows, function (column, row) {
-      return items[row * rows + column]
+      return items[row * rows + column] || null
     })
   } else {
     build2DArray(this._array, columns, rows)
@@ -137,9 +169,17 @@ var Rectangle = function (columns, rows, items) {
 
 Rectangle.prototype.rebuild = function (columns, rows, iteratee) {
   var old = this._array.splice(0, this._array.length)
+
   build2DArray(this._array, columns, rows, function (column, row) {
-    return old[row][column] || null
+    if (isArrayLike(old[row])) {
+      return old[row][column] || null
+    } else {
+      return null
+    }
   })
+
+  this.dims.rows = rows
+  this.dims.columns = columns
 }
 
 Rectangle.prototype.setCell = function (q, r, item) {
@@ -160,21 +200,6 @@ Rectangle.prototype.clearCell = function (q, r) {
 Rectangle.prototype.each = function (iteratee, context) {
   each(this, iteratee, context)
   return this
-}
-
-function prepare (fill) {
-  if (typeof fill === 'function') {
-    return fill
-  } else if (isArrayLike(fill)) {
-    var length = fill.length              // Might want to look into generators.
-    return function (item, q, r, array, index) { // Need the additional index for accessing
-      array[r][q] = (index < length) ? fill[index] : null // the arrayLike seperately.
-    }
-  } else {
-    return function (item, q, r, array) {
-      array[r][q] = null
-    }
-  }
 }
 
 Rectangle.prototype.setRow = function (r, fill) {
@@ -205,7 +230,7 @@ Rectangle.prototype.getColumn = function (q) {
 
 Rectangle.prototype.addRow = function (fill) {
   var r = this.dims.rows++
-  this._array[r] = []
+  this._array[r] = [] // Need to add an array to contain the row.
   this.setRow(r, fill)
   return this
 }
@@ -216,7 +241,11 @@ Rectangle.prototype.addColumn = function (fill) {
   return this
 }
 
-Rectangle.prototype.fillRect = function (q1, r1, width, height, value) {
+Rectangle.prototype.fill = function (iteratee) {
+  mutate(this, iteratee)
+}
+
+Rectangle.prototype.fillRect = function (q1, r1, width, height, iteratee) {
   var q2, r2, row, rows, array, column, columns
 
   array = this._array
@@ -228,60 +257,32 @@ Rectangle.prototype.fillRect = function (q1, r1, width, height, value) {
 
   for (row = r1; row < r2; row++) {
     for (column = q1; column < q2; column++) {
-      array[row][column] = value
+      array[row][column] = iteratee(array[row][column], column, row, array)
     }
   }
 }
 
 Rectangle.prototype.clearRect = function (q, r, width, height) {
-  if (!q && !r) {
-    this.fillRect(0, 0, this.dims.columns, this.dims.rows, null)
+  var clear = function () { return null }
+  if (q === undefined && r === undefined) {
+    this.fillRect(0, 0, this.dims.columns, this.dims.rows, clear)
   } else if (width && height) {
-    this.fillRect(q, r, width, height, null)
+    this.fillRect(q, r, width, height, clear)
   }
 }
 
 Rectangle.prototype.clearRow = function (row) {
   this.clearRect(0, row, this.dims.columns, 1)
+  return this
 }
 
-Rectangle.prototype.imposeRect = function (rect, q1, r1) {
+Rectangle.prototype.clearColumn = function (column) {
+  this.clearRect(column, 0, 1, this.dims.rows)
+  return this
+}
+
+Rectangle.prototype.impose = function (rect, q1, r1) {
   impose(this, rect, q1, r1)
 }
-
-// Rectangle.prototype.setRow = function (row, string, centered) {
-//   if (row < this.rows) {
-//     this.clearRow(row)
-//     var end
-//     var start = 0
-//     var center
-//     var columns = this.columns
-//     var length = (string.length < columns) ? string.length : columns
-//     var arrayRow = this._array[row]
-//     if (centered && length < columns) {
-//       center = Math.floor(columns / 2)
-//       start = center - Math.floor(length / 2)
-//     }
-//     end = start + length
-//     for (var i = start, j = 0; i < end; i++, j++) {
-//       // Need a seperate index `j` for `string` to start at 0.
-//       arrayRow[i] = string[j]
-//     }
-//   }
-// }
-
-// Rectangle.prototype.stringify = function () {
-//   var string = ''
-//   var eol = this.columns - 1
-//   each(this, function (item, q, r, array) {
-//     string += isEmpty(item) ? ' ' : item
-//     if (q === eol) { string += '\n' }
-//   })
-//   return string
-// }
-
-// Rectangle.prototype.log = function () {
-//   console.log(this.stringify())
-// }
 
 module.exports = Rectangle

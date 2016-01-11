@@ -1,5 +1,3 @@
-# Rectangle - A text rectangle constructor.
+# Rectangle - A Two Dimensional Array Constructor.
 
 ## Usage
-
-Uses a multi-dimensional array to represent a text rectangle.

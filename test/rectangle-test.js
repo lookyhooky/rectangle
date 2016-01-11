@@ -245,7 +245,7 @@ describe('rectangle', function () {
 
     describe('#addColumn', function () {
       tests.forEach(function (test) {
-        it('properly accepts ' + test.type + ' as a second argument', function () {
+        it('properly accepts ' + test.type + ' as an argument', function () {
           rect
             .addColumn(test.arg)
             .getColumn(selection)
@@ -258,6 +258,69 @@ describe('rectangle', function () {
         rect.addColumn()
         expect(rect.dims.columns).to.equal(4)
       })
+    })
+  })
+
+  describe('Clear Methods', function () {
+    var selection
+
+    selection = 1
+
+    describe('#clearCell', function () {
+      it('properly sets a single cell to \'null\'', function () {
+        rect.clearCell(selection, selection)
+        var value = rect.getCell(selection, selection)
+        expect(value).to.be.null
+      })
+    })
+
+    describe('#clearRow', function () {
+      it('properly sets all cells of the row to \'null\'', function () {
+        rect
+          .clearRow(selection)
+          .getRow(selection)
+          .forEach(function (item, index, array) {
+            expect(item).to.be.null
+          })
+      })
+    })
+
+    describe('#clearColumn', function () {
+      it('properly sets all cells of the column to \'null\'', function () {
+        rect
+          .clearColumn(selection)
+          .getColumn(selection)
+          .forEach(function (item, index, array) {
+            expect(item).to.be.null
+          })
+      })
+    })
+  })
+
+  describe('#rebuild', function () {
+    var test = function (columns, rows) {
+      rect.rebuild(columns, rows)
+      expect(rect.dims.rows).to.equal(rows)
+      expect(rect.dims.columns).to.equal(columns)
+    }
+
+    it('can add rows', function () {
+      test(3, 4)
+    })
+    it('can add columns', function () {
+      test(4, 3)
+    })
+    it('can add rows and columns', function () {
+      test(6, 6)
+    })
+    it('can remove rows', function () {
+      test(3, 2)
+    })
+    it('can remove columns', function () {
+      test(2, 3)
+    })
+    it('can remove rows and columns', function () {
+      test(2, 2)
     })
   })
 })

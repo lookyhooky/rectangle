@@ -1,8 +1,8 @@
 {
   "name": "rectangle",
   "license": "MIT",
-  "version": "0.0.2",
-  "description": "A text rectangle constructor",
+  "version": "0.1.0",
+  "description": "A Two Dimensional Array Constructor",
   "main": "rectangle.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha --reporter spec"
