@@ -14,66 +14,98 @@ function isEmpty (item) {
   return (isArrayLike(item) && item.length === 0)
 }
 
+function clear (item, column, row, array) {
+  array[row][column] = null
+}
+
+function has (rect, column, row) {
+  return (row > -1 && row < rect.rows) && (column > -1 && column < rect.columns)
+}
+
 function hasRow (rect, row) {
-  return (row > -1 && row < rect.dims.rows)
+  return (row > -1 && row < rect.rows)
 }
 
 function hasColumn (rect, column) {
-  return (column > -1 && column < rect.dims.columns)
+  return (column > -1 && column < rect.columns)
 }
 
 function build2DArray (array, columns, rows, iteratee) {
-  if (columns > 0 && rows > 0) {
-    var row, column
-    array.length = rows // Truncate incase rebuilding the array.
-    iteratee = iteratee || function (row, column) { return null }
-    for (row = 0; row < rows; row++) {
-      array[row] = []
-      for (column = 0; column < columns; column++) {
-        array[row][column] = iteratee(column, row)
+  if (Array.isArray(array) && columns > 0 && rows > 0) {
+    array.length = rows // Truncate incase of rebuilding.
+    for (var row = 0; row < rows; row++) {
+      array[row] = array[row] || [] // Create a row array if it doesn't exist.
+      for (var column = 0; column < columns; column++) {
+        // Call iteratee with arguments of previous item plus column and row indexes.
+        array[row][column] = iteratee(array[row][column], column, row)
       }
     }
   }
 }
 
-var each = function (rect, iteratee, context) {
-  var q, r, array, qCount, rCount
-  array = rect._array
-  for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
-    for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
+function each (rect, iteratee, context) {
+  var array = rect.array
+  for (var r = 0, rows = rect.rows; r < rows; r++) {
+    for (var q = 0, columns = rect.columns; q < columns; q++) {
       iteratee.call(context, array[r][q], q, r, array)
     }
   }
 }
 
-var mutate = function (rect, iteratee, context) {
-  var q, r, array, qCount, rCount
-  array = rect._array
-  for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
-    for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
-      array[r][q] = iteratee.call(context, array[r][q], q, r, array)
+function calcSelection (rect, q, r, width, height) {
+  if (width < 0 && height < 0) {
+    throw new Error('calcSelection recieved an out of range argument')
+  } else if (has(rect, q, r)) {
+    var inputExitColumn = q + width
+    var inputExitRow = r + height
+    var exitColumn = inputExitColumn < rect.columns
+        ? inputExitColumn
+        : rect.columns
+    var exitRow = inputExitRow < rect.rows
+        ? inputExitRow
+        : rect.rows
+    return {
+      start: { q: q, r: r },
+      exit: { q: exitColumn, r: exitRow }
+    }
+  } else {
+    return null
+  }
+}
+
+function eachSelection (array, s, iteratee, context) {
+  for (var r = s.start.r, exitRow = s.exit.r; r < exitRow; r++) {
+    for (var q = s.start.q, exitColumn = s.exit.q; q < exitColumn; q++) {
+      iteratee.call(context, array[r][q], q, r, array)
     }
   }
 }
 
-each.row = function (rect, iteratee, context) {
-  var q, r, row, array, qCount, rCount
-  array = rect._array
-  for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
+function select (rect, q, r, width, height, iteratee, context) {
+  var selection = calcSelection(rect, q, r, width, height)
+  if (selection) {
+    eachSelection(rect.array, selection, iteratee, context)
+  }
+}
+
+function eachRow (rect, iteratee, context) {
+  var row, array
+  array = rect.array
+  for (var r = 0, rows = rect.rows; r < rows; r++) {
     row = []
-    for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
+    for (var q = 0, columns = rect.columns; q < columns; q++) {
       row.push(array[r][q])
     }
     iteratee.call(context, row, r, array)
   }
 }
 
-each.column = function (rect, iteratee, context) {
-  var q, r, array, qCount, rCount, column
-  array = rect._array
-  for (q = 0, qCount = rect.dims.columns; q < qCount; q++) {
+function eachColumn (rect, iteratee, context) {
+  var column
+  var array = rect.array
+  for (var q = 0, columns = rect.columns; q < columns; q++) {
     column = []
-    for (r = 0, rCount = rect.dims.rows; r < rCount; r++) {
+    for (var r = 0, rows = rect.rows; r < rows; r++) {
       column.push(array[r][q])
     }
     iteratee.call(context, column, q, array)
@@ -81,27 +113,24 @@ each.column = function (rect, iteratee, context) {
 }
 
 /*
- * The current `column or `row is passesd as the last argument to `iteratee.
+ * The current column or row is passesd as the last argument to iteratee.
  * The intent is for it to use as an index for the current position. This should
- * allow `iteratee to be dual purposed for either each.of.row or each.of.column
+ * allow iteratee to be dual purposed for eachColumnOfRow and eachRowOfColumn.
  */
-each.of = {
-  row: function (rect, r, iteratee, context) {
-    if (hasRow(rect, r)) {
-      var q, array, count
-      array = rect._array
-      for (q = 0, count = rect.dims.columns; q < count; q++) {
-        iteratee.call(context, array[r][q], q, r, array, q)
-      }
+function eachColumnOfRow (rect, r, iteratee, context) {
+  if (hasRow(rect, r)) {
+    var array = rect.array
+    for (var q = 0, columns = rect.columns; q < columns; q++) {
+      iteratee.call(context, array[r][q], q, r, array, q)
     }
-  },
-  column: function (rect, q, iteratee, context) {
-    if (hasColumn(rect, q)) {
-      var r, array, count
-      array = rect._array
-      for (r = 0, count = rect.dims.rows; r < count; r++) {
-        iteratee.call(context, array[r][q], q, r, array, r)
-      }
+  }
+}
+
+function eachRowOfColumn (rect, q, iteratee, context) {
+  if (hasColumn(rect, q)) {
+    var array = rect.array
+    for (var r = 0, rows = rect.rows; r < rows; r++) {
+      iteratee.call(context, array[r][q], q, r, array, r)
     }
   }
 }
@@ -110,91 +139,88 @@ function prepare (fill) {
   if (typeof fill === 'function') {
     return fill
   } else if (isArrayLike(fill)) {
-    var length = fill.length              // Might want to look into generators.
+    var length = fill.length
     return function (item, q, r, array, index) { // Need the additional index for accessing
       array[r][q] = (index < length) ? fill[index] : null // the arrayLike seperately.
     }
   } else {
-    return function (item, q, r, array) {
-      array[r][q] = null
-    }
+    return clear
   }
 }
 
 /*
- * impose --- Replace the values of `main with those of `rect starting at `q1,`r1
- * and ending at `q2,`r2.
+ * merge --- Replace the values of main with those of rect starting at column and row
  */
-function impose (main, rect, q1, r1) {
-  if (q1 < main.dims.columns && r1 < main.dims.rows) {
-    var q2, r2, array
-    array = main._array
-    q2 = (q1 + rect.dims.columns > main.dims.columns)
-      ? main.dims.columns
-      : q1 + rect.dims.columns
-    r2 = (r1 + rect.dims.rows > main.dims.rows)
-      ? main.dims.rows
-      : r1 + rect.dims.rows
-
-    each(rect, function (item, q, r) {
-      if (item) {
-        var currentQ = q + q1
-        var currentR = r + r1
-        if (currentQ < q2 && currentR < r2) {
-          array[currentR][currentQ] = item
-        }
+function merge (main, rect, column, row) {
+  var selection = calcSelection(main, column, row, rect.columns, rect.rows)
+  if (selection) {
+    var mainQ, mainR, width, height, startQ, startR, mainArray, rectArray
+    mainArray = main.array
+    rectArray = rect.array
+    width = selection.exit.q - selection.start.q
+    height = selection.exit.r - selection.start.r
+    startR = selection.start.r
+    startQ = selection.start.q
+    for (var currentR = 0; currentR < height; currentR++) {
+      for (var currentQ = 0; currentQ < width; currentQ++) {
+        mainR = currentR + startR
+        mainQ = currentQ + startQ
+        mainArray[mainR][mainQ] = rectArray[currentR][currentQ]
       }
-    })
+    }
   }
 }
 
 var Rectangle = function (columns, rows, items) {
   Object.defineProperties(this, {
-    'dims': {
-      value: { columns: columns, rows: rows }
+    'columns': {
+      value: columns,
+      writable: true
     },
-    '_array': {
+    'rows': {
+      value: rows,
+      writable: true
+    },
+    'array': {
       value: []
     }
   })
 
-  if (isArrayLike(items)) {
-    build2DArray(this._array, columns, rows, function (column, row) {
-      return items[row * rows + column] || null
-    })
-  } else {
-    build2DArray(this._array, columns, rows)
-  }
+  var iterator = (isArrayLike(items))
+      ? function (previous, column, row) { return items[row * rows + column] || null }
+      : function () { return null }
+
+  build2DArray(this.array, columns, rows, iterator)
+}
+
+Rectangle.prototype.has = function (q, r) {
+  return has(this, q, r)
 }
 
 Rectangle.prototype.rebuild = function (columns, rows, iteratee) {
-  var old = this._array.splice(0, this._array.length)
-
-  build2DArray(this._array, columns, rows, function (column, row) {
-    if (isArrayLike(old[row])) {
-      return old[row][column] || null
-    } else {
-      return null
-    }
+  // var len = this.array.length
+  // var old = this.array.splice(0, len)
+  iteratee = iteratee || function (previous) { return previous || null }
+  build2DArray(this.array, columns, rows, function (previous, column, row) {
+    return iteratee(previous, column, row)
+    // var previous = (row < len) ? old[row][column] || null : null
+    // return iteratee(previous, column, row)
   })
-
-  this.dims.rows = rows
-  this.dims.columns = columns
+  this.rows = rows
+  this.columns = columns
 }
 
-Rectangle.prototype.setCell = function (q, r, item) {
-  if (hasColumn(this, q) && hasRow(this, r)) {
-    this._array[r][q] = item
-  }
+Rectangle.prototype.set = function (q, r, item) {
+  if (has(this, q, r)) { this.array[r][q] = item }
   return item
 }
 
-Rectangle.prototype.getCell = function (q, r) {
-  return (hasColumn(this, q) && hasRow(this, r)) ? this._array[r][q] : null
+Rectangle.prototype.get = function (q, r) {
+  return (has(this, q, r)) ? this.array[r][q] : null
 }
 
-Rectangle.prototype.clearCell = function (q, r) {
-  return this.setCell(q, r, null)
+Rectangle.prototype.clear = function (q, r) {
+  return this.set(q, r, null)
 }
 
 Rectangle.prototype.each = function (iteratee, context) {
@@ -202,87 +228,80 @@ Rectangle.prototype.each = function (iteratee, context) {
   return this
 }
 
+Rectangle.prototype.eachRow = function (iteratee, context) {
+  eachRow(this, iteratee, context)
+  return this
+}
+
+Rectangle.prototype.eachColumn = function (iteratee, context) {
+  eachColumn(this, iteratee, context)
+  return this
+}
+
 Rectangle.prototype.setRow = function (r, fill) {
-  each.of.row(this, r, prepare(fill))
+  eachColumnOfRow(this, r, prepare(fill))
   return this
 }
 
 Rectangle.prototype.setColumn = function (q, fill) {
-  each.of.column(this, q, prepare(fill))
+  eachRowOfColumn(this, q, prepare(fill))
   return this
 }
 
 Rectangle.prototype.getRow = function (r) {
   var row = []
-  each.of.row(this, r, function (item) {
+  eachColumnOfRow(this, r, function (item) {
     row.push(item)
   })
-  return (!isEmpty(row) ? row : null)
+  return !isEmpty(row) ? row : null
 }
 
 Rectangle.prototype.getColumn = function (q) {
   var column = []
-  each.of.column(this, q, function (item) {
+  eachRowOfColumn(this, q, function (item) {
     column.push(item)
   })
-  return (!isEmpty(column) ? column : null)
+  return !isEmpty(column) ? column : null
 }
 
 Rectangle.prototype.addRow = function (fill) {
-  var r = this.dims.rows++
-  this._array[r] = [] // Need to add an array to contain the row.
-  this.setRow(r, fill)
+  var row = this.rows++
+  this.array[row] = [] // Need to add an array to contain the row.
+  this.setRow(row, fill)
   return this
 }
 
 Rectangle.prototype.addColumn = function (fill) {
-  var q = this.dims.columns++
-  this.setColumn(q, fill)
+  var column = this.columns++
+  this.setColumn(column, fill)
   return this
 }
 
-Rectangle.prototype.fill = function (iteratee) {
-  mutate(this, iteratee)
+Rectangle.prototype.select = function (q, r, width, height, iteratee) {
+  select(this, q, r, width, height, iteratee)
 }
 
-Rectangle.prototype.fillRect = function (q1, r1, width, height, iteratee) {
-  var q2, r2, row, rows, array, column, columns
-
-  array = this._array
-  rows = this.dims.rows
-  columns = this.dims.columns
-
-  r2 = ((r1 + height) < rows) ? r1 + height : rows
-  q2 = ((q1 + width) < columns) ? q1 + width : columns
-
-  for (row = r1; row < r2; row++) {
-    for (column = q1; column < q2; column++) {
-      array[row][column] = iteratee(array[row][column], column, row, array)
-    }
-  }
+Rectangle.prototype.mergeRect = function (rect, q, r) {
+  merge(this, rect, q, r)
 }
 
 Rectangle.prototype.clearRect = function (q, r, width, height) {
-  var clear = function () { return null }
-  if (q === undefined && r === undefined) {
-    this.fillRect(0, 0, this.dims.columns, this.dims.rows, clear)
-  } else if (width && height) {
-    this.fillRect(q, r, width, height, clear)
+  var selection = (q === undefined) // If no arguments are supplied, select all.
+      ? calcSelection(this, 0, 0, this.columns, this.rows)
+      : calcSelection(this, q, r, width, height)
+  if (selection) {
+    eachSelection(this.array, selection, clear)
   }
 }
 
 Rectangle.prototype.clearRow = function (row) {
-  this.clearRect(0, row, this.dims.columns, 1)
+  this.clearRect(0, row, this.columns, 1)
   return this
 }
 
 Rectangle.prototype.clearColumn = function (column) {
-  this.clearRect(column, 0, 1, this.dims.rows)
+  this.clearRect(column, 0, 1, this.rows)
   return this
-}
-
-Rectangle.prototype.impose = function (rect, q1, r1) {
-  impose(this, rect, q1, r1)
 }
 
 module.exports = Rectangle

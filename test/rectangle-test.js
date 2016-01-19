@@ -16,60 +16,60 @@ describe('rectangle', function () {
     filler = 'abcdefghi'
     rect = new Rectangle(3, 3, filler)
     other = new Rectangle(2, 2)
-    rows = rect.dims.rows
+    rows = rect.rows
   })
 
   describe('constructor', function () {
     it('should create a rectangle with proper dimensions', function () {
       var expected = 3
-      expect(rect._array.length).to.equal(expected) // rows
-      for (var r = 0, len = rect._array.length; r < len; r++) {
-        expect(rect._array[r].length).to.equal(expected) // columns of each row
+      expect(rect.array.length).to.equal(expected) // rows
+      for (var r = 0, len = rect.array.length; r < len; r++) {
+        expect(rect.array[r].length).to.equal(expected) // columns of each row
       }
     })
     it('should initialize with no fill argument', function () {
       var expected = [null, null, null, null, null, null, null, null, null]
       rect = new Rectangle(3, 3)
-      var count = rect.dims.rows
-      for (var r = 0, len = rect._array.length; r < len; r++) {
-        for (var q = 0, inner = rect._array[r].length; q < inner; q++) {
-          expect(rect._array[r][q]).to.equal(expected[r * count + q])
+      var count = rect.rows
+      for (var r = 0, len = rect.array.length; r < len; r++) {
+        for (var q = 0, inner = rect.array[r].length; q < inner; q++) {
+          expect(rect.array[r][q]).to.equal(expected[r * count + q])
         }
       }
     })
     it('should initialize with string for fill', function () {
       var expected = ['abc', 'def', 'ghi']
       rect = new Rectangle(3, 3, 'abcdefghi')
-      for (var r = 0, len = rect._array.length; r < len; r++) {
-        for (var q = 0, inner = rect._array[r].length; q < inner; q++) {
-          expect(rect._array[r][q]).to.equal(expected[r][q])
+      for (var r = 0, len = rect.array.length; r < len; r++) {
+        for (var q = 0, inner = rect.array[r].length; q < inner; q++) {
+          expect(rect.array[r][q]).to.equal(expected[r][q])
         }
       }
     })
     it('should initialize with an array for fill', function () {
       var expected = ['abc', 'def', 'ghi']
       rect = new Rectangle(3, 3, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'])
-      for (var r = 0, len = rect._array.length; r < len; r++) {
-        for (var q = 0, inner = rect._array[r].length; q < inner; q++) {
-          expect(rect._array[r][q]).to.equal(expected[r][q])
+      for (var r = 0, len = rect.array.length; r < len; r++) {
+        for (var q = 0, inner = rect.array[r].length; q < inner; q++) {
+          expect(rect.array[r][q]).to.equal(expected[r][q])
         }
       }
     })
   })
 
-  describe('dimensions aka dims', function () {
+  describe('dimensions', function () {
     it('should have a property \'rows\'', function () {
-      expect(rect.dims).to.have.property('rows')
+      expect(rect).to.have.property('rows')
     })
     it('\'rows\' should represent the length of the first dimension', function () {
-      expect(rect.dims.rows).to.equal(rect._array.length)
+      expect(rect.rows).to.equal(rect.array.length)
     })
     it('should have a property \'columns\'', function () {
-      expect(rect.dims).to.have.property('columns')
+      expect(rect).to.have.property('columns')
     })
     it('\'columns\' should represent the length of the second dimension', function () {
-      for (var r = 0, len = rect.dims.rows; r < len; r++) {
-        expect(rect.dims.columns).to.equal(rect._array[r].length)
+      for (var r = 0, len = rect.rows; r < len; r++) {
+        expect(rect.columns).to.equal(rect.array[r].length)
       }
     })
   })
@@ -94,7 +94,7 @@ describe('rectangle', function () {
       })
     })
     it('should iterate and pass array to iteratee as forth argument', function () {
-      var expected = rect._array
+      var expected = rect.array
       rect.each(function (item, q, r, array) {
         expect(array).to.equal(expected)
       })
@@ -102,11 +102,11 @@ describe('rectangle', function () {
   })
 
   describe('Get Methods', function () {
-    describe('#getCell', function () {
+    describe('#get', function () {
       it('should return the value of a specific cell', function () {
-        var foo = rect.getCell(0, 2)
-        var bar = other.getCell(0, 1)
-        var baz = rect.getCell(2, 0)
+        var foo = rect.get(0, 2)
+        var bar = other.get(0, 1)
+        var baz = rect.get(2, 0)
         expect(foo).to.equal(filler[6])
         expect(bar).to.be.null
         expect(baz).to.equal(filler[2])
@@ -162,14 +162,14 @@ describe('rectangle', function () {
       }
     ]
 
-    describe('#setCell', function () {
+    describe('#set', function () {
       var expected = 'j'
       it('should modify a selected cell of the rectangle', function () {
-        rect.setCell(0, 0, expected)
-        expect(rect._array[0][0]).to.equal(expected)
+        rect.set(0, 0, expected)
+        expect(rect.array[0][0]).to.equal(expected)
       })
       it('should not modify any other cell of the rectangle', function () {
-        rect.setCell(0, 0, expected)
+        rect.set(0, 0, expected)
         rect.each(function (item, q, r, array) {
           if (q !== 0 && r !== 0) {
             expect(item).to.equal(filler[rows * r + q])
@@ -239,7 +239,7 @@ describe('rectangle', function () {
       })
       it('increments the dimensions property \'rows\'', function () {
         rect.addRow()
-        expect(rect.dims.rows).to.equal(4)
+        expect(rect.rows).to.equal(4)
       })
     })
 
@@ -256,7 +256,7 @@ describe('rectangle', function () {
       })
       it('increments the dimensions property \'columns\'', function () {
         rect.addColumn()
-        expect(rect.dims.columns).to.equal(4)
+        expect(rect.columns).to.equal(4)
       })
     })
   })
@@ -266,10 +266,10 @@ describe('rectangle', function () {
 
     selection = 1
 
-    describe('#clearCell', function () {
+    describe('#clear', function () {
       it('properly sets a single cell to \'null\'', function () {
-        rect.clearCell(selection, selection)
-        var value = rect.getCell(selection, selection)
+        rect.clear(selection, selection)
+        var value = rect.get(selection, selection)
         expect(value).to.be.null
       })
     })
@@ -300,8 +300,8 @@ describe('rectangle', function () {
   describe('#rebuild', function () {
     var test = function (columns, rows) {
       rect.rebuild(columns, rows)
-      expect(rect.dims.rows).to.equal(rows)
-      expect(rect.dims.columns).to.equal(columns)
+      expect(rect.rows).to.equal(rows)
+      expect(rect.columns).to.equal(columns)
     }
 
     it('can add rows', function () {
